@@ -42,6 +42,11 @@ RUN yum install -y yum-utils && \
     INSTALL_PKGS="rsync tar gettext hostname bind-utils groff-base rh-mysql57" && \
     yum install -y --setopt=tsflags=nodocs $INSTALL_PKGS && \
     rpm -V $INSTALL_PKGS && \
+    #  Start Install Percona extraBackup and Bahmni
+    yum install -y https://www.percona.com/downloads/XtraBackup/Percona-XtraBackup-2.4.5/binary/redhat/6/x86_64/percona-xtrabackup-24-2.4.5-1.el6.x86_64.rpm && \
+    yum -y install https://dl.bintray.com/bahmni/rpm/rpms/bahmni-installer-0.92-155.noarch.rpm && \
+    yum -y install https://dl.bintray.com/bahmni/rpm/ansible-2.4.6.0-1.el7.ans.noarch.rpm sudo && \
+    #  End Install Percona extraBackup and Bahmni
     yum -y clean all --enablerepo='*' && \
     mkdir -p /var/lib/mysql/data && chown -R mysql.0 /var/lib/mysql && \
     test "$(id mysql)" = "uid=27(mysql) gid=27(mysql) groups=27(mysql)"
@@ -58,9 +63,9 @@ ENV BASH_ENV=${CONTAINER_SCRIPTS_PATH}/scl_enable \
     ENV=${CONTAINER_SCRIPTS_PATH}/scl_enable \
     PROMPT_COMMAND=". ${CONTAINER_SCRIPTS_PATH}/scl_enable"
 
-COPY 5.7/root-common /
-COPY 5.7/s2i-common/bin/ $STI_SCRIPTS_PATH
-COPY 5.7/root /
+COPY root-common /
+COPY s2i-common/bin/ $STI_SCRIPTS_PATH
+COPY root /
 
 # this is needed due to issues with squash
 # when this directory gets rm'd by the container-setup
@@ -74,7 +79,15 @@ RUN rm -rf /etc/my.cnf.d/* && \
 # https://github.com/sclorg/httpd-container/issues/30
 # VOLUME ["/var/lib/mysql/data"]
 
-USER 27
+##### Start Bahmni Setup 
+COPY mysql-playbook/mysql.yml /opt/bahmni-installer/bahmni-playbooks/mysql.yml
+RUN ls /opt/bahmni-installer/bahmni-playbooks/mysql.yml
+RUN cd /opt/bahmni-installer/bahmni-playbooks/
+RUN ansible-playbook -i local /opt/bahmni-installer/bahmni-playbooks/mysql.yml --extra-vars 'implementation_name=default'
+#RUN hostname bahmni-emr-db
+##### END Bahmni Setup 
 
+
+USER 27
 ENTRYPOINT ["container-entrypoint"]
 CMD ["run-mysqld"]
